@@ -1,0 +1,990 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Intranet – Battlefield Lobby</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+    body{min-height:100vh;color:#fff;overflow:hidden}
+
+    .bg-image{position:fixed;inset:0;z-index:-2}
+    .bg-image img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
+    .bg-overlay{
+      position:fixed;inset:0;z-index:-1;pointer-events:none;
+      background:
+        radial-gradient(circle at 50% 40%, rgba(0,0,0,0.1) 0, rgba(0,0,0,0.7) 60%),
+        linear-gradient(to bottom, rgba(0,0,0,0.9), rgba(0,0,0,0.2) 35%, rgba(0,0,0,0.9) 100%);
+    }
+
+    /* TOP NAV (CENTERED) */
+    .top-nav{
+      position:relative;height:58px;
+      padding:0 clamp(1.5rem,3vw,3rem);
+      display:grid;grid-template-columns:1fr auto 1fr;
+      align-items:center;
+      background:linear-gradient(to bottom, rgba(0,0,0,0.9), rgba(0,0,0,0));
+      border-bottom:1px solid rgba(255,255,255,0.08);
+    }
+    .top-left{display:flex;align-items:center;gap:1rem;justify-self:start;min-width:0}
+    .brand-mark{font-size:0.8rem;letter-spacing:0.18em;text-transform:uppercase;opacity:0.85;white-space:nowrap}
+    .season-tag{
+      padding:0.2rem 0.6rem;border-radius:999px;
+      border:1px solid rgba(255,255,255,0.25);
+      font-size:0.68rem;letter-spacing:0.18em;text-transform:uppercase;
+      background:rgba(0,0,0,0.7);white-space:nowrap
+    }
+    .top-nav-menu{
+      justify-self:center;
+      display:flex;gap:clamp(0.8rem,1.8vw,2.3rem);
+      font-size:clamp(0.68rem,0.8vw,0.78rem);
+      text-transform:uppercase;letter-spacing:0.16em;
+    }
+    .top-nav-menu span{
+      position:relative;cursor:pointer;padding-bottom:0.2rem;
+      opacity:0.78;user-select:none;transition:opacity .18s ease;white-space:nowrap;
+      outline:none;
+    }
+    .top-nav-menu span:hover{opacity:1}
+    .top-nav-menu span.active{opacity:1}
+    .top-nav-menu span.active::after{
+      content:"";position:absolute;left:0;right:0;bottom:-0.25rem;height:2px;background:#fff;
+    }
+    .top-right-spacer{justify-self:end}
+
+    /* LEFT PANEL (START) */
+    .left-panel{
+      position:absolute;left:clamp(1.5rem,4vw,3rem);bottom:clamp(2rem,6vh,3rem);
+      width:clamp(220px,18vw,260px);
+      display:flex;flex-direction:column;gap:0.75rem;
+      font-size:0.75rem;text-transform:uppercase;letter-spacing:0.12em;z-index:5;
+    }
+    .panel-button{
+      border-radius:0.4rem;padding:0.85rem 1rem;
+      background:rgba(0,0,0,0.75);border:1px solid rgba(255,255,255,0.15);
+      display:flex;justify-content:space-between;align-items:center;cursor:pointer;
+      backdrop-filter:blur(6px);
+      transition:transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease, border-color .18s ease;
+    }
+    .panel-button:hover{
+      transform:translateY(-4px) scale(1.02);
+      border-color:rgba(255,255,255,0.28);
+      box-shadow:0 16px 42px rgba(0,0,0,0.45);
+    }
+    .panel-button span{opacity:0.92}
+    .panel-button--primary{
+      border:1px solid #fff;
+      background:linear-gradient(135deg,#fff 0%,#d7d7d7 40%,#999 100%);
+      color:#000;font-weight:700;letter-spacing:0.18em;
+    }
+    .start-label{display:flex;flex-direction:column;gap:0.25rem}
+
+    /* RIGHT PANEL – QUICK ICONS (Chat) */
+    .right-panel{
+      position:absolute;right:clamp(0.7rem,1.5vw,1.4rem);top:clamp(4.5rem,9vh,6rem);
+      display:flex;flex-direction:column;gap:0.5rem;z-index:6;
+    }
+    .quick-icon{
+      width:38px;height:38px;border-radius:12px;
+      border:1px solid rgba(255,255,255,0.25);
+      background:rgba(0,0,0,0.85);
+      display:flex;align-items:center;justify-content:center;
+      opacity:0.86;cursor:pointer;user-select:none;
+      backdrop-filter:blur(6px);
+      transition:transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease, border-color .18s ease, background .18s ease, opacity .18s ease;
+    }
+    .quick-icon:hover{
+      opacity:1;transform:translateY(-3px) scale(1.04);
+      border-color:rgba(255,255,255,0.55);
+      background:rgba(255,255,255,0.06);
+      box-shadow:0 0 0 1px rgba(255,255,255,0.08), 0 16px 40px rgba(0,0,0,0.55);
+    }
+    .quick-icon:active{transform:translateY(-1px) scale(1.02)}
+
+    /* ========================= MODAL BASE ========================= */
+    .modal-overlay{
+      position:fixed;inset:0;z-index:50;
+      background:rgba(0,0,0,0.55);
+      backdrop-filter:blur(6px);
+      opacity:0;pointer-events:none;transition:opacity .22s ease;
+    }
+    .modal-overlay.is-open{opacity:1;pointer-events:auto}
+    .modal{
+      position:fixed;inset:0;z-index:60;
+      display:grid;place-items:center;
+      padding:clamp(1rem,3vw,2.5rem);
+      pointer-events:none;
+    }
+    .modal.is-open{pointer-events:auto}
+    .modal-panel{
+      width:min(760px,92vw);
+      border-radius:18px;
+      background:rgba(0,0,0,0.78);
+      border:1px solid rgba(255,255,255,0.18);
+      box-shadow:0 20px 60px rgba(0,0,0,0.55);
+      backdrop-filter:blur(10px);
+      transform:translateY(14px) scale(0.98);
+      opacity:0;
+      transition:transform .26s cubic-bezier(.2,.8,.2,1), opacity .18s ease;
+    }
+    .modal.is-open .modal-panel{transform:translateY(0) scale(1);opacity:1}
+    .modal-header{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:1rem 1.1rem;border-bottom:1px solid rgba(255,255,255,0.12);
+    }
+    .modal-title{font-size:0.78rem;text-transform:uppercase;letter-spacing:0.18em;opacity:0.9}
+    .modal-close{
+      border:1px solid rgba(255,255,255,0.22);
+      background:rgba(255,255,255,0.06);
+      color:#fff;border-radius:12px;padding:0.45rem 0.7rem;
+      cursor:pointer;letter-spacing:0.08em;text-transform:uppercase;font-size:0.68rem;
+      transition:transform .15s ease, background .15s ease;
+    }
+    .modal-close:hover{background:rgba(255,255,255,0.12);transform:translateY(-1px)}
+    .modal-footer{
+      padding:0 1.1rem 1.1rem;
+      display:flex;justify-content:flex-end;gap:0.6rem;
+    }
+    .modal-btn{
+      border:1px solid rgba(255,255,255,0.18);
+      background:rgba(255,255,255,0.06);
+      color:#fff;border-radius:14px;padding:0.55rem 0.8rem;
+      cursor:pointer;font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;
+      transition:transform .15s ease, background .15s ease, border-color .15s ease;
+    }
+    .modal-btn:hover{
+      transform:translateY(-1px);
+      background:rgba(255,255,255,0.12);
+      border-color:rgba(255,255,255,0.28);
+    }
+
+    /* FIREWALLS tiles */
+    .tile-grid{padding:1.1rem;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.9rem}
+    .fw-tile{
+      text-decoration:none;color:inherit;border-radius:16px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+      border:1px solid rgba(255,255,255,0.16);
+      padding:1.05rem;min-height:120px;
+      display:flex;flex-direction:column;justify-content:space-between;
+      position:relative;overflow:hidden;
+      transform:translateY(0) scale(1);
+      transition:transform .18s cubic-bezier(.2,.8,.2,1), border-color .18s ease, box-shadow .18s ease, background .18s ease;
+      box-shadow:0 10px 30px rgba(0,0,0,0.25);
+    }
+    .fw-tile::before{
+      content:"";position:absolute;inset:-40%;
+      background:radial-gradient(circle at 30% 30%, rgba(255,255,255,0.14), rgba(255,255,255,0) 60%);
+      transform:rotate(12deg);opacity:0.8;pointer-events:none;
+    }
+    .fw-tile:hover{
+      transform:translateY(-6px) scale(1.03);
+      border-color:rgba(255,255,255,0.35);
+      box-shadow:0 18px 50px rgba(0,0,0,0.45);
+      background:linear-gradient(180deg, rgba(255,255,255,0.11), rgba(255,255,255,0.05));
+    }
+    .fw-top{display:flex;align-items:center;justify-content:space-between;gap:0.75rem}
+    .fw-chip{
+      font-size:0.6rem;letter-spacing:0.16em;text-transform:uppercase;opacity:0.8;
+      border:1px solid rgba(255,255,255,0.22);padding:0.18rem 0.5rem;border-radius:999px;
+      background:rgba(0,0,0,0.35);backdrop-filter:blur(6px);
+    }
+    .fw-arrow{font-size:1rem;opacity:0.85;transform:translateX(0);transition:transform .18s ease, opacity .18s ease}
+    .fw-tile:hover .fw-arrow{transform:translateX(4px);opacity:1}
+    .fw-name{margin-top:0.55rem;font-size:1.05rem;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;line-height:1.15}
+    .fw-sub{margin-top:0.3rem;font-size:0.7rem;letter-spacing:0.14em;text-transform:uppercase;opacity:0.7}
+
+    /* START GRID (equal tiles) */
+    .start-grid{
+      padding:1.1rem;
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:1rem;
+    }
+    .s-tile{
+      text-decoration:none;color:inherit;border-radius:18px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+      border:1px solid rgba(255,255,255,0.16);
+      padding:1.05rem;
+      min-height:150px;
+      display:flex;flex-direction:column;justify-content:space-between;
+      position:relative;overflow:hidden;
+      transform:translateY(0) scale(1);
+      transition:transform .18s cubic-bezier(.2,.8,.2,1), border-color .18s ease, box-shadow .18s ease, background .18s ease;
+      box-shadow:0 10px 30px rgba(0,0,0,0.25);
+    }
+    .s-tile::before{
+      content:"";position:absolute;inset:-45%;
+      background:radial-gradient(circle at 30% 30%, rgba(255,255,255,0.15), rgba(255,255,255,0) 60%);
+      transform:rotate(10deg);opacity:0.85;pointer-events:none;
+    }
+    .s-tile:hover{
+      transform:translateY(-6px) scale(1.03);
+      border-color:rgba(255,255,255,0.36);
+      box-shadow:0 18px 50px rgba(0,0,0,0.48);
+      background:linear-gradient(180deg, rgba(255,255,255,0.11), rgba(255,255,255,0.05));
+    }
+    .s-chip{
+      display:inline-flex;align-items:center;gap:0.4rem;width:fit-content;
+      font-size:0.6rem;letter-spacing:0.16em;text-transform:uppercase;opacity:0.8;
+      border:1px solid rgba(255,255,255,0.22);padding:0.18rem 0.5rem;border-radius:999px;
+      background:rgba(0,0,0,0.35);backdrop-filter:blur(6px);
+    }
+    .s-title{margin-top:0.55rem;font-size:1.05rem;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;line-height:1.1}
+    .s-sub{margin-top:0.25rem;font-size:0.7rem;letter-spacing:0.14em;text-transform:uppercase;opacity:0.68}
+    .s-arrow{position:absolute;right:14px;top:14px;font-size:1rem;opacity:0.82;transform:translateX(0);transition:transform .18s ease, opacity .18s ease}
+    .s-tile:hover .s-arrow{transform:translateX(4px);opacity:1}
+
+    /* TASKS + COMPLETED */
+    .tasks-panel{width:min(820px,92vw)}
+    .tasks-body{padding:1.1rem;display:grid;grid-template-columns:1.2fr 0.8fr;gap:1rem}
+    .tasks-col{border-radius:16px;border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.05);backdrop-filter:blur(8px);overflow:hidden}
+    .tasks-col-header{padding:0.85rem 0.95rem;border-bottom:1px solid rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:space-between;gap:0.75rem}
+    .tasks-col-title{font-size:0.7rem;letter-spacing:0.18em;text-transform:uppercase;opacity:0.9}
+    .tasks-count{font-size:0.62rem;letter-spacing:0.14em;text-transform:uppercase;opacity:0.6;border:1px solid rgba(255,255,255,0.18);padding:0.18rem 0.5rem;border-radius:999px;background:rgba(0,0,0,0.25)}
+    .tasks-list{padding:0.85rem 0.95rem;display:flex;flex-direction:column;gap:0.6rem;max-height:44vh;overflow:auto}
+    .task-item{display:flex;align-items:flex-start;gap:0.7rem;border:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.28);border-radius:14px;padding:0.6rem 0.7rem}
+    .task-item input[type="checkbox"]{margin-top:0.15rem;width:16px;height:16px;accent-color:#fff;cursor:pointer}
+    .task-text{flex:1;font-size:0.9rem;line-height:1.25;opacity:0.95;word-break:break-word}
+    .task-meta{font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;opacity:0.55;margin-top:0.15rem}
+    .task-remove{border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.06);color:#fff;border-radius:10px;padding:0.25rem 0.45rem;cursor:pointer;font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;transition:transform .15s ease, background .15s ease, opacity .15s ease}
+    .task-remove:hover{transform:translateY(-1px);background:rgba(255,255,255,0.12);opacity:1}
+    .task-add{padding:0.85rem 0.95rem;border-top:1px solid rgba(255,255,255,0.12);display:flex;gap:0.6rem;align-items:center;background:rgba(0,0,0,0.18)}
+    .task-add input{flex:1;border-radius:14px;padding:0.7rem 0.85rem;border:1px solid rgba(255,255,255,0.18);background:rgba(0,0,0,0.55);color:#fff;outline:none;font-size:0.9rem}
+    .task-add input::placeholder{color:rgba(255,255,255,0.45)}
+    .task-add button{border-radius:14px;padding:0.7rem 0.9rem;border:1px solid rgba(255,255,255,0.22);background:rgba(255,255,255,0.08);color:#fff;cursor:pointer;font-size:0.72rem;letter-spacing:0.14em;text-transform:uppercase;white-space:nowrap;transition:transform .15s ease, background .15s ease, border-color .15s ease}
+    .task-add button:hover{transform:translateY(-1px);background:rgba(255,255,255,0.14);border-color:rgba(255,255,255,0.32)}
+
+    .completed-btn{
+      position:fixed;
+      right:calc(clamp(0.7rem,1.5vw,1.4rem) + 46px);
+      top:clamp(4.5rem,9vh,6rem);
+      z-index:8;
+      width:38px;height:38px;border-radius:12px;
+      border:1px solid rgba(255,255,255,0.25);
+      background:rgba(0,0,0,0.85);
+      display:flex;align-items:center;justify-content:center;
+      opacity:0.86;cursor:pointer;user-select:none;
+      backdrop-filter:blur(6px);
+      color:#fff;font-weight:900;
+      transition:transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease, border-color .18s ease, background .18s ease, opacity .18s ease;
+    }
+    .completed-btn:hover{
+      opacity:1;transform:translateY(-3px) scale(1.04);
+      border-color:rgba(255,255,255,0.55);
+      background:rgba(255,255,255,0.06);
+      box-shadow:0 0 0 1px rgba(255,255,255,0.08), 0 16px 40px rgba(0,0,0,0.55);
+    }
+    .completed-badge{
+      position:absolute;top:-6px;right:-6px;
+      min-width:18px;height:18px;padding:0 6px;border-radius:999px;
+      border:1px solid rgba(255,255,255,0.35);
+      background:rgba(0,0,0,0.6);
+      font-size:0.62rem;display:flex;align-items:center;justify-content:center;letter-spacing:0.08em;
+      color:#fff;
+    }
+    .completed-drawer{
+      position:fixed;right:1.1rem;
+      top:calc(clamp(4.5rem,9vh,6rem) + 160px);
+      z-index:70;
+      width:min(360px,92vw);
+      max-height:min(380px,55vh);
+      border-radius:18px;background:rgba(0,0,0,0.78);
+      border:1px solid rgba(255,255,255,0.18);
+      box-shadow:0 20px 60px rgba(0,0,0,0.55);
+      backdrop-filter:blur(10px);
+      display:flex;flex-direction:column;
+      transform:translateY(10px) scale(0.98);
+      opacity:0;pointer-events:none;
+      transition:transform .22s cubic-bezier(.2,.8,.2,1), opacity .18s ease;
+    }
+    .completed-drawer.is-open{transform:translateY(0) scale(1);opacity:1;pointer-events:auto}
+    .completed-header{display:flex;align-items:center;justify-content:space-between;padding:0.85rem 0.95rem;border-bottom:1px solid rgba(255,255,255,0.12)}
+    .completed-title{font-size:0.72rem;letter-spacing:0.18em;text-transform:uppercase;opacity:0.9}
+    .completed-close{border:1px solid rgba(255,255,255,0.22);background:rgba(255,255,255,0.06);color:#fff;border-radius:12px;padding:0.4rem 0.6rem;cursor:pointer;font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;transition:transform .15s ease, background .15s ease}
+    .completed-close:hover{background:rgba(255,255,255,0.12);transform:translateY(-1px)}
+    .completed-list{padding:0.85rem 0.95rem;overflow:auto;display:flex;flex-direction:column;gap:0.55rem}
+    .completed-item{border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.06);border-radius:14px;padding:0.6rem 0.7rem;opacity:0.9}
+    .completed-item .c-text{font-size:0.88rem;line-height:1.2}
+    .completed-item .c-meta{margin-top:0.25rem;font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;opacity:0.55}
+
+    /* CHAT */
+    .chat-drawer{
+      position:fixed;right:1.1rem;top:clamp(4.5rem,9vh,6rem);
+      z-index:70;width:min(360px,92vw);height:min(520px,72vh);
+      border-radius:18px;background:rgba(0,0,0,0.78);
+      border:1px solid rgba(255,255,255,0.18);
+      box-shadow:0 20px 60px rgba(0,0,0,0.55);
+      backdrop-filter:blur(10px);
+      display:flex;flex-direction:column;
+      transform:translateY(10px) scale(0.98);
+      opacity:0;pointer-events:none;
+      transition:transform .22s cubic-bezier(.2,.8,.2,1), opacity .18s ease;
+    }
+    .chat-drawer.is-open{transform:translateY(0) scale(1);opacity:1;pointer-events:auto}
+    .chat-header{display:flex;align-items:center;justify-content:space-between;padding:0.9rem 1rem;border-bottom:1px solid rgba(255,255,255,0.12)}
+    .chat-title{font-size:0.72rem;text-transform:uppercase;letter-spacing:0.18em;opacity:0.9}
+    .chat-close{border:1px solid rgba(255,255,255,0.22);background:rgba(255,255,255,0.06);color:#fff;border-radius:12px;padding:0.4rem 0.6rem;cursor:pointer;font-size:0.68rem;letter-spacing:0.14em;text-transform:uppercase;transition:transform .15s ease, background .15s ease}
+    .chat-close:hover{background:rgba(255,255,255,0.12);transform:translateY(-1px)}
+    .chat-messages{padding:0.9rem 1rem;overflow:auto;flex:1;display:flex;flex-direction:column;gap:0.6rem}
+    .msg{max-width:88%;border-radius:14px;padding:0.6rem 0.75rem;border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.06);backdrop-filter:blur(6px)}
+    .msg.me{margin-left:auto;background:rgba(255,255,255,0.10);border-color:rgba(255,255,255,0.20)}
+    .msg-meta{font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;opacity:0.65;margin-bottom:0.25rem}
+    .msg-text{font-size:0.85rem;line-height:1.25;opacity:0.95;word-wrap:break-word}
+    .chat-input{border-top:1px solid rgba(255,255,255,0.12);padding:0.75rem 0.8rem;display:flex;gap:0.6rem;align-items:center}
+    .chat-input input{flex:1;border-radius:14px;padding:0.7rem 0.85rem;border:1px solid rgba(255,255,255,0.18);background:rgba(0,0,0,0.55);color:#fff;outline:none;font-size:0.9rem}
+    .chat-input input::placeholder{color:rgba(255,255,255,0.45)}
+    .chat-send{border-radius:14px;padding:0.7rem 0.9rem;border:1px solid rgba(255,255,255,0.22);background:rgba(255,255,255,0.08);color:#fff;cursor:pointer;font-size:0.72rem;letter-spacing:0.14em;text-transform:uppercase;white-space:nowrap;transition:transform .15s ease, background .15s ease, border-color .15s ease}
+    .chat-send:hover{transform:translateY(-1px);background:rgba(255,255,255,0.14);border-color:rgba(255,255,255,0.32)}
+
+    /* RESPONSIVE */
+    @media (max-width: 900px){
+      body{overflow-y:auto}
+      .tile-grid{grid-template-columns:1fr}
+      .tasks-body{grid-template-columns:1fr}
+      .start-grid{grid-template-columns:1fr}
+      .left-panel{position:static;margin:7rem 1rem 1rem;width:auto}
+      .completed-btn{right:0.8rem;top:calc(clamp(4.5rem,9vh,6rem) + 44px)}
+      .completed-drawer{right:0.8rem}
+    }
+    @media (max-width: 600px){
+      .top-nav{padding-inline:1rem}
+      .top-nav-menu{display:none}
+      .right-panel{right:0.6rem}
+      .chat-drawer,.completed-drawer{right:0.6rem;width:92vw}
+      .completed-btn{right:0.6rem}
+    }
+    @media (prefers-reduced-motion: reduce){
+      .modal-overlay,.modal-panel,.fw-tile,.fw-arrow,.modal-close,.modal-btn,
+      .top-nav-menu span,.quick-icon,.panel-button,.s-tile,.s-arrow,
+      .chat-drawer,.chat-close,.chat-send,.completed-btn,.completed-drawer {
+        transition:none!important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-image">
+    <img src="https://stingraymanufacturers.github.io/itdepartment/lobbyfar.png" alt="Battlefield style lobby background" />
+  </div>
+  <div class="bg-overlay"></div>
+
+  <header class="top-nav">
+    <div class="top-left">
+      <div class="brand-mark">IT DEPARTMENT</div>
+      <div class="season-tag">IT OPS // SEASON 1</div>
+    </div>
+
+    <nav class="top-nav-menu" aria-label="Top navigation">
+      <span class="active" id="navPlay" role="button" tabindex="0">Play</span>
+      <span id="firewallsNav" role="button" tabindex="0" aria-haspopup="dialog" aria-controls="firewallsModal">Firewalls</span>
+
+      <!-- ✅ NEW NAV ITEM -->
+      <span id="msAdminNav" role="button" tabindex="0" aria-haspopup="dialog" aria-controls="msAdminModal">MS Admin Centers</span>
+
+      <span id="tasksNav" role="button" tabindex="0" aria-haspopup="dialog" aria-controls="tasksModal">Tasks</span>
+    </nav>
+
+    <div class="top-right-spacer" aria-hidden="true"></div>
+  </header>
+
+  <section class="left-panel">
+    <button class="panel-button panel-button--primary" id="startBtn" type="button">
+      <div class="start-label">
+        <span>Start</span>
+      </div>
+      <span>▶</span>
+    </button>
+  </section>
+
+  <button class="completed-btn" id="completedBtn" type="button" title="Completed tasks">
+    ✓
+    <span class="completed-badge" id="completedBadge">0</span>
+  </button>
+
+  <aside class="right-panel" aria-label="Quick actions">
+    <div class="quick-icon" id="chatBtn" title="Team Chat">💬</div>
+  </aside>
+
+  <!-- FIREWALLS MODAL -->
+  <div class="modal-overlay" id="firewallsOverlay" aria-hidden="true"></div>
+  <div class="modal" id="firewallsModal" role="dialog" aria-modal="true" aria-labelledby="firewallsTitle" aria-hidden="true">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div class="modal-title" id="firewallsTitle">Firewalls</div>
+        <button class="modal-close" id="firewallsClose" type="button">Close</button>
+      </div>
+
+      <div class="tile-grid">
+        <a class="fw-tile" href="#" onclick="return false;">
+          <div class="fw-top">
+            <div class="fw-chip">Unifi Console</div>
+            <div class="fw-arrow">→</div>
+          </div>
+          <div>
+            <div class="fw-name">CPT Dream Machine</div>
+            <div class="fw-sub">Open dashboard</div>
+          </div>
+        </a>
+
+        <a class="fw-tile" href="#" onclick="return false;">
+          <div class="fw-top">
+            <div class="fw-chip">Unifi Console</div>
+            <div class="fw-arrow">→</div>
+          </div>
+          <div>
+            <div class="fw-name">JHB Dream Machine</div>
+            <div class="fw-sub">Open dashboard</div>
+          </div>
+        </a>
+      </div>
+
+      <div class="modal-footer">
+        <button class="modal-btn" id="firewallsCancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ MS ADMIN CENTERS MODAL -->
+  <div class="modal-overlay" id="msAdminOverlay" aria-hidden="true"></div>
+  <div class="modal" id="msAdminModal" role="dialog" aria-modal="true" aria-labelledby="msAdminTitle" aria-hidden="true">
+    <div class="modal-panel" style="width:min(820px,92vw);">
+      <div class="modal-header">
+        <div class="modal-title" id="msAdminTitle">MS Admin Centers</div>
+        <button class="modal-close" id="msAdminClose" type="button">Close</button>
+      </div>
+
+      <div class="tile-grid" aria-label="Microsoft admin centers">
+        <a class="fw-tile" href="#" onclick="return false;">
+          <div class="fw-top">
+            <div class="fw-chip">Microsoft 365</div>
+            <div class="fw-arrow">→</div>
+          </div>
+          <div>
+            <div class="fw-name">Admin Center</div>
+            <div class="fw-sub">Open portal</div>
+          </div>
+        </a>
+
+        <a class="fw-tile" href="#" onclick="return false;">
+          <div class="fw-top">
+            <div class="fw-chip">Microsoft 365</div>
+            <div class="fw-arrow">→</div>
+          </div>
+          <div>
+            <div class="fw-name">Exchange</div>
+            <div class="fw-sub">Mail & transport</div>
+          </div>
+        </a>
+
+        <a class="fw-tile" href="#" onclick="return false;">
+          <div class="fw-top">
+            <div class="fw-chip">Identity</div>
+            <div class="fw-arrow">→</div>
+          </div>
+          <div>
+            <div class="fw-name">Entra</div>
+            <div class="fw-sub">Users & access</div>
+          </div>
+        </a>
+
+        <a class="fw-tile" href="#" onclick="return false;">
+          <div class="fw-top">
+            <div class="fw-chip">Collaboration</div>
+            <div class="fw-arrow">→</div>
+          </div>
+          <div>
+            <div class="fw-name">SharePoint</div>
+            <div class="fw-sub">Sites & files</div>
+          </div>
+        </a>
+
+        <a class="fw-tile" href="#" onclick="return false;">
+          <div class="fw-top">
+            <div class="fw-chip">Collaboration</div>
+            <div class="fw-arrow">→</div>
+          </div>
+          <div>
+            <div class="fw-name">Teams</div>
+            <div class="fw-sub">Calls & channels</div>
+          </div>
+        </a>
+      </div>
+
+      <div class="modal-footer">
+        <button class="modal-btn" id="msAdminCancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- START GRID MODAL -->
+  <div class="modal-overlay" id="startOverlay" aria-hidden="true"></div>
+  <div class="modal" id="startModal" role="dialog" aria-modal="true" aria-labelledby="startTitle" aria-hidden="true">
+    <div class="modal-panel" style="width:min(820px,92vw);">
+      <div class="modal-header">
+        <div class="modal-title" id="startTitle">Daily Tools</div>
+        <button class="modal-close" id="startClose" type="button">Close</button>
+      </div>
+
+      <div class="start-grid" aria-label="Daily tools grid">
+        <a class="s-tile" href="#" onclick="return false;">
+          <div class="s-chip">RMM</div>
+          <div class="s-arrow">→</div>
+          <div>
+            <div class="s-title">Datto</div>
+            <div class="s-sub">Monitoring & automation</div>
+          </div>
+        </a>
+
+        <a class="s-tile" href="#" onclick="return false;">
+          <div class="s-chip">VoIP</div>
+          <div class="s-arrow">→</div>
+          <div>
+            <div class="s-title">Yeastar Cloud PBX</div>
+            <div class="s-sub">Calling & extensions</div>
+          </div>
+        </a>
+
+        <a class="s-tile" href="#" onclick="return false;">
+          <div class="s-chip">Ops</div>
+          <div class="s-arrow">→</div>
+          <div>
+            <div class="s-title">Call Cabinet</div>
+            <div class="s-sub">Recordings & QA</div>
+          </div>
+        </a>
+
+        <a class="s-tile" href="#" onclick="return false;">
+          <div class="s-chip">Reporting</div>
+          <div class="s-arrow">→</div>
+          <div>
+            <div class="s-title">MAN 3000</div>
+            <div class="s-sub">Dashboards & insights</div>
+          </div>
+        </a>
+      </div>
+
+      <div class="modal-footer">
+        <button class="modal-btn" id="startCancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASKS MODAL -->
+  <div class="modal-overlay" id="tasksOverlay" aria-hidden="true"></div>
+  <div class="modal" id="tasksModal" role="dialog" aria-modal="true" aria-labelledby="tasksTitle" aria-hidden="true">
+    <div class="modal-panel tasks-panel">
+      <div class="modal-header">
+        <div class="modal-title" id="tasksTitle">Tasks</div>
+        <button class="modal-close" id="tasksClose" type="button">Close</button>
+      </div>
+
+      <div class="tasks-body">
+        <div class="tasks-col">
+          <div class="tasks-col-header">
+            <div class="tasks-col-title">Active</div>
+            <div class="tasks-count" id="activeCount">0 items</div>
+          </div>
+          <div class="tasks-list" id="activeList"></div>
+
+          <div class="task-add">
+            <input id="taskInput" type="text" placeholder="Add a new task..." maxlength="140" />
+            <button id="taskAddBtn" type="button">Add</button>
+          </div>
+        </div>
+
+        <div class="tasks-col">
+          <div class="tasks-col-header">
+            <div class="tasks-col-title">Completed</div>
+            <div class="tasks-count" id="completedCount">0 items</div>
+          </div>
+          <div class="tasks-list" id="completedPreview"></div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="modal-btn" id="tasksCancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPLETED DRAWER -->
+  <section class="completed-drawer" id="completedDrawer" aria-hidden="true">
+    <div class="completed-header">
+      <div class="completed-title">Completed Tasks</div>
+      <button class="completed-close" id="completedClose" type="button">Close</button>
+    </div>
+    <div class="completed-list" id="completedList"></div>
+  </section>
+
+  <!-- CHAT -->
+  <section class="chat-drawer" id="chatDrawer" aria-hidden="true">
+    <div class="chat-header">
+      <div class="chat-title">IT Team Chat</div>
+      <button class="chat-close" id="chatClose" type="button">Close</button>
+    </div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <form class="chat-input" id="chatForm" autocomplete="off">
+      <input id="chatInputChat" type="text" placeholder="Type a message..." maxlength="300" />
+      <button class="chat-send" type="submit">Send</button>
+    </form>
+  </section>
+
+  <script>
+    function escapeHtml(str){
+      return String(str).replace(/[&<>"']/g, (m) => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+      }[m]));
+    }
+    function nowTime(){
+      const d = new Date();
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    function loadJson(key, fallback){
+      try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
+      catch{ return fallback; }
+    }
+    function saveJson(key, value){
+      try{ localStorage.setItem(key, JSON.stringify(value)); }catch{}
+    }
+
+    /* NAV ACTIVE UNDERLINE */
+    const navItems = {
+      play: document.getElementById('navPlay'),
+      firewalls: document.getElementById('firewallsNav'),
+      msadmin: document.getElementById('msAdminNav'),
+      tasks: document.getElementById('tasksNav')
+    };
+
+    function setActiveNav(key){
+      Object.values(navItems).forEach(el => el && el.classList.remove('active'));
+      if(navItems[key]) navItems[key].classList.add('active');
+    }
+
+    /* FIREWALLS MODAL */
+    const fwOverlay = document.getElementById('firewallsOverlay');
+    const fwModal = document.getElementById('firewallsModal');
+    const fwCloseBtn = document.getElementById('firewallsClose');
+    const fwCancelBtn = document.getElementById('firewallsCancel');
+
+    function openFirewalls(){
+      setActiveNav('firewalls');
+      fwOverlay.classList.add('is-open');
+      fwModal.classList.add('is-open');
+      fwOverlay.setAttribute('aria-hidden','false');
+      fwModal.setAttribute('aria-hidden','false');
+      fwCloseBtn.focus({preventScroll:true});
+    }
+    function closeFirewalls(){
+      fwOverlay.classList.remove('is-open');
+      fwModal.classList.remove('is-open');
+      fwOverlay.setAttribute('aria-hidden','true');
+      fwModal.setAttribute('aria-hidden','true');
+      navItems.firewalls.focus({preventScroll:true});
+    }
+    navItems.firewalls.addEventListener('click', openFirewalls);
+    navItems.firewalls.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter' || e.key===' '){ e.preventDefault(); openFirewalls(); }
+    });
+    fwOverlay.addEventListener('click', closeFirewalls);
+    fwCloseBtn.addEventListener('click', closeFirewalls);
+    fwCancelBtn.addEventListener('click', closeFirewalls);
+
+    /* ✅ MS ADMIN CENTERS MODAL */
+    const msOverlay = document.getElementById('msAdminOverlay');
+    const msModal = document.getElementById('msAdminModal');
+    const msCloseBtn = document.getElementById('msAdminClose');
+    const msCancelBtn = document.getElementById('msAdminCancel');
+
+    function openMsAdmin(){
+      setActiveNav('msadmin');
+      msOverlay.classList.add('is-open');
+      msModal.classList.add('is-open');
+      msOverlay.setAttribute('aria-hidden','false');
+      msModal.setAttribute('aria-hidden','false');
+      msCloseBtn.focus({preventScroll:true});
+    }
+    function closeMsAdmin(){
+      msOverlay.classList.remove('is-open');
+      msModal.classList.remove('is-open');
+      msOverlay.setAttribute('aria-hidden','true');
+      msModal.setAttribute('aria-hidden','true');
+      navItems.msadmin.focus({preventScroll:true});
+    }
+    navItems.msadmin.addEventListener('click', openMsAdmin);
+    navItems.msadmin.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter' || e.key===' '){ e.preventDefault(); openMsAdmin(); }
+    });
+    msOverlay.addEventListener('click', closeMsAdmin);
+    msCloseBtn.addEventListener('click', closeMsAdmin);
+    msCancelBtn.addEventListener('click', closeMsAdmin);
+
+    /* START MODAL (Play section) */
+    const startBtn = document.getElementById('startBtn');
+    const startOverlay = document.getElementById('startOverlay');
+    const startModal = document.getElementById('startModal');
+    const startClose = document.getElementById('startClose');
+    const startCancel = document.getElementById('startCancel');
+
+    function openStart(){
+      setActiveNav('play');
+      startOverlay.classList.add('is-open');
+      startModal.classList.add('is-open');
+      startOverlay.setAttribute('aria-hidden','false');
+      startModal.setAttribute('aria-hidden','false');
+      startClose.focus({preventScroll:true});
+    }
+    function closeStart(){
+      startOverlay.classList.remove('is-open');
+      startModal.classList.remove('is-open');
+      startOverlay.setAttribute('aria-hidden','true');
+      startModal.setAttribute('aria-hidden','true');
+      startBtn.focus({preventScroll:true});
+    }
+    startBtn.addEventListener('click', openStart);
+    navItems.play.addEventListener('click', ()=>{ setActiveNav('play'); });
+    navItems.play.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter' || e.key===' '){ e.preventDefault(); setActiveNav('play'); }
+    });
+    startOverlay.addEventListener('click', closeStart);
+    startClose.addEventListener('click', closeStart);
+    startCancel.addEventListener('click', closeStart);
+
+    /* TASKS MODAL */
+    const tasksOverlay = document.getElementById('tasksOverlay');
+    const tasksModal = document.getElementById('tasksModal');
+    const tasksClose = document.getElementById('tasksClose');
+    const tasksCancel = document.getElementById('tasksCancel');
+
+    function openTasks(){
+      setActiveNav('tasks');
+      tasksOverlay.classList.add('is-open');
+      tasksModal.classList.add('is-open');
+      tasksOverlay.setAttribute('aria-hidden','false');
+      tasksModal.setAttribute('aria-hidden','false');
+      renderTasks();
+      setTimeout(()=>taskInput.focus(), 30);
+    }
+    function closeTasks(){
+      tasksOverlay.classList.remove('is-open');
+      tasksModal.classList.remove('is-open');
+      tasksOverlay.setAttribute('aria-hidden','true');
+      tasksModal.setAttribute('aria-hidden','true');
+      navItems.tasks.focus({preventScroll:true});
+    }
+    navItems.tasks.addEventListener('click', openTasks);
+    navItems.tasks.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter' || e.key===' '){ e.preventDefault(); openTasks(); }
+    });
+    tasksOverlay.addEventListener('click', closeTasks);
+    tasksClose.addEventListener('click', closeTasks);
+    tasksCancel.addEventListener('click', closeTasks);
+
+    /* Tasks storage */
+    const TASKS_KEY = 'it_lobby_tasks_v1';
+    const COMPLETED_KEY = 'it_lobby_tasks_completed_v1';
+    const activeList = document.getElementById('activeList');
+    const completedPreview = document.getElementById('completedPreview');
+    const completedList = document.getElementById('completedList');
+    const activeCount = document.getElementById('activeCount');
+    const completedCount = document.getElementById('completedCount');
+    const completedBadge = document.getElementById('completedBadge');
+    const taskInput = document.getElementById('taskInput');
+    const taskAddBtn = document.getElementById('taskAddBtn');
+
+    function addTask(text){
+      const tasks = loadJson(TASKS_KEY, []);
+      const id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random();
+      tasks.push({ id, text, created: Date.now() });
+      saveJson(TASKS_KEY, tasks);
+      renderTasks();
+    }
+    function completeTask(id){
+      const tasks = loadJson(TASKS_KEY, []);
+      const idx = tasks.findIndex(t => t.id === id);
+      if(idx === -1) return;
+      const done = tasks.splice(idx, 1)[0];
+      saveJson(TASKS_KEY, tasks);
+
+      const completed = loadJson(COMPLETED_KEY, []);
+      completed.unshift({ ...done, completed: Date.now() });
+      saveJson(COMPLETED_KEY, completed.slice(0, 150));
+      renderTasks();
+      renderCompletedDrawer();
+    }
+    function removeTask(id){
+      const tasks = loadJson(TASKS_KEY, []);
+      saveJson(TASKS_KEY, tasks.filter(t => t.id !== id));
+      renderTasks();
+    }
+    function renderTasks(){
+      const tasks = loadJson(TASKS_KEY, []);
+      const completed = loadJson(COMPLETED_KEY, []);
+
+      activeList.innerHTML = '';
+      tasks.forEach(t => {
+        const row = document.createElement('div');
+        row.className = 'task-item';
+        row.innerHTML = `
+          <input type="checkbox" aria-label="Complete task">
+          <div style="flex:1">
+            <div class="task-text">${escapeHtml(t.text)}</div>
+            <div class="task-meta">${new Date(t.created).toLocaleDateString()} · ${new Date(t.created).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+          </div>
+          <button class="task-remove" type="button" aria-label="Remove task">X</button>
+        `;
+        row.querySelector('input[type="checkbox"]').addEventListener('change', () => completeTask(t.id));
+        row.querySelector('.task-remove').addEventListener('click', () => removeTask(t.id));
+        activeList.appendChild(row);
+      });
+
+      completedPreview.innerHTML = '';
+      completed.slice(0, 6).forEach(t => {
+        const item = document.createElement('div');
+        item.className = 'completed-item';
+        item.innerHTML = `
+          <div class="c-text">${escapeHtml(t.text)}</div>
+          <div class="c-meta">done · ${new Date(t.completed).toLocaleDateString()} ${new Date(t.completed).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+        `;
+        completedPreview.appendChild(item);
+      });
+
+      activeCount.textContent = `${tasks.length} item${tasks.length===1?'':'s'}`;
+      completedCount.textContent = `${completed.length} item${completed.length===1?'':'s'}`;
+      completedBadge.textContent = String(completed.length);
+    }
+    taskAddBtn.addEventListener('click', () => {
+      const text = (taskInput.value || '').trim();
+      if(!text) return;
+      addTask(text);
+      taskInput.value = '';
+      taskInput.focus();
+    });
+    taskInput.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter'){ e.preventDefault(); taskAddBtn.click(); }
+    });
+
+    /* Completed drawer */
+    const completedBtn = document.getElementById('completedBtn');
+    const completedDrawer = document.getElementById('completedDrawer');
+    const completedClose = document.getElementById('completedClose');
+
+    function openCompletedDrawer(){
+      completedDrawer.classList.add('is-open');
+      completedDrawer.setAttribute('aria-hidden','false');
+      renderCompletedDrawer();
+      completedClose.focus({preventScroll:true});
+    }
+    function closeCompletedDrawer(){
+      completedDrawer.classList.remove('is-open');
+      completedDrawer.setAttribute('aria-hidden','true');
+      completedBtn.focus({preventScroll:true});
+    }
+    function renderCompletedDrawer(){
+      const completed = loadJson(COMPLETED_KEY, []);
+      completedList.innerHTML = '';
+      completed.forEach(t => {
+        const item = document.createElement('div');
+        item.className = 'completed-item';
+        item.innerHTML = `
+          <div class="c-text">${escapeHtml(t.text)}</div>
+          <div class="c-meta">done · ${new Date(t.completed).toLocaleDateString()} ${new Date(t.completed).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+        `;
+        completedList.appendChild(item);
+      });
+      completedBadge.textContent = String(completed.length);
+    }
+    completedBtn.addEventListener('click', () => {
+      if(completedDrawer.classList.contains('is-open')) closeCompletedDrawer();
+      else openCompletedDrawer();
+    });
+    completedClose.addEventListener('click', closeCompletedDrawer);
+
+    /* CHAT */
+    const chatBtn = document.getElementById('chatBtn');
+    const chatDrawer = document.getElementById('chatDrawer');
+    const chatClose = document.getElementById('chatClose');
+    const chatForm = document.getElementById('chatForm');
+    const chatInputChat = document.getElementById('chatInputChat');
+    const chatMessages = document.getElementById('chatMessages');
+
+    const CHAT_KEY = 'it_lobby_chat_messages_v1';
+    const USER_KEY = 'it_lobby_chat_name_v1';
+
+    function loadMessages(){ return loadJson(CHAT_KEY, []); }
+    function saveMessages(msgs){ saveJson(CHAT_KEY, msgs); }
+
+    function renderMessages(){
+      const msgs = loadMessages();
+      chatMessages.innerHTML = '';
+      msgs.forEach((m) => {
+        const div = document.createElement('div');
+        div.className = 'msg ' + (m.me ? 'me' : '');
+        div.innerHTML =
+          `<div class="msg-meta">${escapeHtml(m.name)} · ${escapeHtml(m.time)}</div>` +
+          `<div class="msg-text">${escapeHtml(m.text)}</div>`;
+        chatMessages.appendChild(div);
+      });
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function getUserName(){
+      const existing = localStorage.getItem(USER_KEY);
+      if(existing) return existing;
+      const name = prompt('Enter your name for the chat (no bot):') || 'User';
+      localStorage.setItem(USER_KEY, (name.trim() || 'User'));
+      return localStorage.getItem(USER_KEY);
+    }
+    const myName = getUserName();
+
+    function openChat(){
+      chatDrawer.classList.add('is-open');
+      chatDrawer.setAttribute('aria-hidden','false');
+      renderMessages();
+      setTimeout(()=>chatInputChat.focus(), 50);
+    }
+    function closeChat(){
+      chatDrawer.classList.remove('is-open');
+      chatDrawer.setAttribute('aria-hidden','true');
+      chatBtn.focus({preventScroll:true});
+    }
+    chatBtn.addEventListener('click', ()=>{
+      if(chatDrawer.classList.contains('is-open')) closeChat();
+      else openChat();
+    });
+    chatClose.addEventListener('click', closeChat);
+
+    window.addEventListener('storage', (e) => {
+      if(e.key === CHAT_KEY && chatDrawer.classList.contains('is-open')) renderMessages();
+      if(e.key === TASKS_KEY || e.key === COMPLETED_KEY) { renderTasks(); renderCompletedDrawer(); }
+    });
+
+    chatForm.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const text = (chatInputChat.value || '').trim();
+      if(!text) return;
+
+      const msgs = loadMessages();
+      msgs.push({ name: myName, time: nowTime(), text, me: true });
+      saveMessages(msgs.slice(-80));
+      chatInputChat.value = '';
+      renderMessages();
+    });
+
+    /* ESC closes whichever is open */
+    document.addEventListener('keydown', (e)=>{
+      if(e.key !== 'Escape') return;
+      if(fwModal.classList.contains('is-open')) closeFirewalls();
+      if(msModal.classList.contains('is-open')) closeMsAdmin();
+      if(startModal.classList.contains('is-open')) closeStart();
+      if(tasksModal.classList.contains('is-open')) closeTasks();
+      if(chatDrawer.classList.contains('is-open')) closeChat();
+      if(completedDrawer.classList.contains('is-open')) closeCompletedDrawer();
+    });
+
+    /* Initial */
+    setActiveNav('play');
+    renderTasks();
+    renderCompletedDrawer();
+  </script>
+</body>
+</html>
