@@ -364,7 +364,8 @@
 </head>
 <body>
   <div class="bg-image">
-    <img src="https://stingraymanufacturers.github.io/itdepartment/lobbyfar.png" alt="Battlefield style lobby background" />
+    <!-- ✅ UPDATED BACKGROUND IMAGE -->
+    <img src="https://stingraymanufacturers.github.io/itdepartment/kids.png" alt="Battlefield style lobby background" />
   </div>
   <div class="bg-overlay"></div>
 
@@ -378,7 +379,6 @@
       <span class="active" id="navPlay" role="button" tabindex="0">Play</span>
       <span id="firewallsNav" role="button" tabindex="0" aria-haspopup="dialog" aria-controls="firewallsModal">Firewalls</span>
 
-      <!-- ✅ NEW NAV ITEM -->
       <span id="msAdminNav" role="button" tabindex="0" aria-haspopup="dialog" aria-controls="msAdminModal">MS Admin Centers</span>
 
       <span id="tasksNav" role="button" tabindex="0" aria-haspopup="dialog" aria-controls="tasksModal">Tasks</span>
@@ -444,7 +444,7 @@
     </div>
   </div>
 
-  <!-- ✅ MS ADMIN CENTERS MODAL -->
+  <!-- MS ADMIN CENTERS MODAL -->
   <div class="modal-overlay" id="msAdminOverlay" aria-hidden="true"></div>
   <div class="modal" id="msAdminModal" role="dialog" aria-modal="true" aria-labelledby="msAdminTitle" aria-hidden="true">
     <div class="modal-panel" style="width:min(820px,92vw);">
@@ -689,7 +689,7 @@
     fwCloseBtn.addEventListener('click', closeFirewalls);
     fwCancelBtn.addEventListener('click', closeFirewalls);
 
-    /* ✅ MS ADMIN CENTERS MODAL */
+    /* MS ADMIN CENTERS MODAL */
     const msOverlay = document.getElementById('msAdminOverlay');
     const msModal = document.getElementById('msAdminModal');
     const msCloseBtn = document.getElementById('msAdminClose');
