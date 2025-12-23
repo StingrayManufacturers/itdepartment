@@ -17,8 +17,19 @@
       --safeX: clamp(18px, 3.2vw, 48px);
       --popOffset: 28px;
 
-      --tileFill1: rgb(12, 72, 28);
-      --tileFill2: rgb(10, 54, 22);
+      /* ✅ blur glass */
+      --glassA: rgba(255,255,255,.10);
+      --glassB: rgba(255,255,255,.06);
+      --glassBorder: rgba(255,255,255,.22);
+      --glassBorderOn: rgba(255,255,255,.42);
+      --glassGlow: rgba(255,255,255,.18);
+
+      /* ✅ fades */
+      --fadeDur: 520ms;
+      --fadeEase: cubic-bezier(.2,.8,.2,1);
+
+      /* ✅ for canvas dots */
+      --dotsBase: 0.010;   /* always faintly visible */
     }
 
     *{box-sizing:border-box}
@@ -31,16 +42,18 @@
       overflow:hidden;
     }
 
-    /* ✅ dynamic background image */
+    /* ✅ dynamic background image (switches per tile) */
     .bgImage{
       position:fixed; inset:0;
-      z-index:-3;                     /* above dark overlay */
+      z-index:-3;
       background:#000 center/cover no-repeat;
-      transition: opacity .25s ease, filter .25s ease, transform .25s ease;
+      transition: opacity var(--fadeDur) var(--fadeEase), filter .25s ease, transform .25s ease;
       opacity: .98;
       filter: saturate(1.05) contrast(1.05);
       transform: scale(1.02);
+      will-change: opacity, background-image;
     }
+    .bgImage.fadeOut{ opacity: 0; }
 
     /* ✅ dark overlay (lets image show through) */
     .bg{
@@ -101,45 +114,62 @@
       scrollbar-color: rgba(255,255,255,.20) rgba(0,0,0,0);
     }
 
+    /* ✅ GLASS TILE (top row) */
     .tile{
       position:relative;
       width: var(--tile);
       height: var(--tile);
       border-radius: 26px;
-      border: 1px solid rgba(50,255,120,.35);
-      background: linear-gradient(180deg, var(--tileFill1), var(--tileFill2));
-      box-shadow: 0 18px 40px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.10);
+      border: 1px solid var(--glassBorder);
+      background: linear-gradient(180deg, var(--glassA), var(--glassB));
+      box-shadow:
+        0 18px 40px rgba(0,0,0,.30),
+        inset 0 1px 0 rgba(255,255,255,.10);
       display:flex;
       align-items:center;
       justify-content:center;
       cursor:pointer;
-      transition: width .18s ease, height .18s ease, transform .18s ease, border-color .18s ease, background .18s ease;
+      transition: width .18s ease, height .18s ease, transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
       flex: 0 0 auto;
       outline:none;
       color: inherit;
       text-decoration: none;
       -webkit-tap-highlight-color: transparent;
+
+      /* glass blur */
+      backdrop-filter: blur(16px) saturate(1.25);
+      -webkit-backdrop-filter: blur(16px) saturate(1.25);
     }
     a.tile{ text-decoration:none; color:inherit; }
+
     .tile:focus-visible{
-      box-shadow: 0 0 0 3px rgba(50,255,120,.25), 0 18px 40px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.10);
-      border-color: rgba(50,255,120,.75);
+      box-shadow:
+        0 0 0 3px rgba(255,255,255,.18),
+        0 18px 40px rgba(0,0,0,.30),
+        inset 0 1px 0 rgba(255,255,255,.12);
+      border-color: var(--glassBorderOn);
     }
     .tile svg{ width:48px; height:48px; opacity:.92 }
+
     .tile .badge{
       position:absolute; right:14px; top:14px;
       width:10px; height:10px; border-radius:99px;
-      background: rgba(50,255,120,.95);
-      box-shadow: 0 0 0 3px rgba(50,255,120,.18);
+      background: rgba(255,255,255,.95);
+      box-shadow: 0 0 0 3px rgba(255,255,255,.20);
       opacity:0;
       transition: opacity .18s ease;
     }
     .tile.active{
       width: var(--tileBig);
       height: var(--tileBig);
-      border-color: rgba(50,255,120,.90);
-      background: linear-gradient(180deg, rgb(18, 110, 42), rgb(10, 60, 22));
+      border-color: var(--glassBorderOn);
+      background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.07));
       transform: translateY(-2px);
+      box-shadow:
+        0 22px 55px rgba(0,0,0,.35),
+        0 0 0 1px rgba(255,255,255,.06),
+        0 0 22px var(--glassGlow),
+        inset 0 1px 0 rgba(255,255,255,.14);
     }
     .tile.active .badge{ opacity:1; }
 
@@ -155,8 +185,9 @@
       overflow: visible;
       padding: 0 8px;
       text-align:center;
+      text-shadow: 0 2px 10px rgba(0,0,0,.35);
     }
-    .tilewrap.active .tile-label{opacity:.95;transform: translateY(0);}
+    .tilewrap.active .tile-label{opacity:.96;transform: translateY(0);}
 
     .pop{
       display:none;
@@ -164,8 +195,17 @@
       flex: 1 1 auto;
       min-height: 0;
       overflow: hidden;
+
+      /* smooth show/hide */
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 280ms var(--fadeEase), transform 280ms var(--fadeEase);
     }
-    .pop.show{ display:flex; }
+    .pop.show{
+      display:flex;
+      opacity: 1;
+      transform: translateY(0);
+    }
     .popBody{
       flex: 1 1 auto;
       min-height: 0;
@@ -177,14 +217,15 @@
       padding-top: 10px;
     }
 
+    /* ✅ GLASS SUBTILES (popup tiles) */
     .subtile{
       width: 300px;
       min-height: 128px;
       border-radius: 18px;
-      border: 1px solid rgba(50,255,120,.30);
-      background: linear-gradient(180deg, rgb(14, 78, 30), rgb(9, 44, 18));
+      border: 1px solid rgba(255,255,255,.18);
+      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
       cursor:pointer;
-      transition: transform .12s ease, border-color .12s ease, filter .12s ease;
+      transition: transform .12s ease, border-color .12s ease, filter .12s ease, box-shadow .12s ease;
       display:flex;
       flex-direction:column;
       padding: 16px;
@@ -193,103 +234,38 @@
       color: var(--text);
       box-shadow: 0 18px 50px rgba(0,0,0,.30);
       flex: 0 0 auto;
-    }
-    .subtile:hover{ transform: translateY(-2px); border-color: rgba(50,255,120,.55); filter: brightness(1.05); }
-    .subtile:focus-visible{ box-shadow: 0 0 0 3px rgba(50,255,120,.22), 0 18px 50px rgba(0,0,0,.30); border-color: rgba(50,255,120,.75); }
-    .subtile .t{ font-weight: 800; font-size: 17px; letter-spacing:.2px; }
-    .subtile .d{ margin-top: 8px; color: rgba(233,238,247,.72); font-size: 13px; line-height: 1.35; }
 
+      backdrop-filter: blur(16px) saturate(1.25);
+      -webkit-backdrop-filter: blur(16px) saturate(1.25);
+    }
+    .subtile:hover{
+      transform: translateY(-2px);
+      border-color: rgba(255,255,255,.34);
+      filter: brightness(1.05);
+      box-shadow: 0 22px 60px rgba(0,0,0,.38), 0 0 0 1px rgba(255,255,255,.06);
+    }
+    .subtile:focus-visible{
+      box-shadow: 0 0 0 3px rgba(255,255,255,.14), 0 22px 60px rgba(0,0,0,.38);
+      border-color: rgba(255,255,255,.46);
+    }
+    .subtile .t{ font-weight: 800; font-size: 17px; letter-spacing:.2px; }
+    .subtile .d{ margin-top: 8px; color: rgba(233,238,247,.78); font-size: 13px; line-height: 1.35; }
+
+    /* ✅ GLASS PANEL (tasks placeholder) */
     .glassPanel{
       width: min(980px, 100%);
       border-radius: 18px;
-      border: 1px solid rgba(50,255,120,.30);
-      background: linear-gradient(180deg, rgb(12, 68, 26), rgb(9, 44, 18));
+      border: 1px solid rgba(255,255,255,.18);
+      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
       box-shadow: 0 18px 50px rgba(0,0,0,.30);
       padding: 14px;
       flex: 1 1 auto;
       min-height: 0;
       display:flex;
       flex-direction:column;
-    }
 
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
-    .field{flex:1 1 320px;display:flex;gap:10px;align-items:center;}
-    .input{
-      width:100%;
-      padding: 10px 12px;
-      border-radius: 14px;
-      border: 1px solid rgba(50,255,120,.22);
-      background: rgba(0,0,0,.28);
-      color: var(--text);
-      outline:none;
-    }
-    .input::placeholder{ color: rgba(233,238,247,.45); }
-    .pillbtn{
-      border:1px solid rgba(50,255,120,.22);
-      background: rgba(0,0,0,.20);
-      color: var(--text);
-      padding: 9px 12px;
-      border-radius: 999px;
-      font-weight: 650;
-      cursor:pointer;
-      transition: transform .12s ease, background .12s ease, border-color .12s ease, filter .12s ease;
-      white-space:nowrap;
-    }
-    .pillbtn:hover{ transform: translateY(-1px); background: rgba(0,0,0,.26); border-color: rgba(50,255,120,.45); filter: brightness(1.05); }
-
-    .cols{
-      margin-top: 10px;
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      flex: 1 1 auto;
-      min-height: 0;
-    }
-    .colCard{
-      border-radius: 16px;
-      border: 1px solid rgba(50,255,120,.22);
-      background: rgba(0,0,0,.26);
-      padding: 10px;
-      min-height: 0;
-      overflow: hidden;
-      display:flex;
-      flex-direction:column;
-    }
-    .colTitle{ font-weight: 800; opacity:.95; margin-bottom: 8px; letter-spacing:.2px; }
-    #todoList, #doneList{ flex: 1 1 auto; min-height: 0; overflow: hidden; }
-
-    .taskItem{
-      display:flex; align-items:center; justify-content:space-between;
-      gap: 10px;
-      padding: 8px 10px;
-      border-radius: 14px;
-      border: 1px solid rgba(50,255,120,.18);
-      background: rgba(0,0,0,.22);
-      margin-bottom: 8px;
-    }
-    .taskItem:last-child{ margin-bottom: 0; }
-    .taskText{ color: rgba(233,238,247,.92); }
-    .taskActions{ display:flex; gap: 8px; }
-    .miniBtn{
-      border:1px solid rgba(50,255,120,.20);
-      background: rgba(0,0,0,.20);
-      color: var(--text);
-      padding: 7px 10px;
-      border-radius: 999px;
-      cursor:pointer;
-      font-weight:650;
-      transition: background .12s ease, border-color .12s ease, transform .12s ease, filter .12s ease;
-    }
-    .miniBtn:hover{ background: rgba(0,0,0,.26); border-color: rgba(50,255,120,.45); transform: translateY(-1px); filter: brightness(1.05); }
-
-    .trophyBadge{ display:inline-flex; align-items:center; gap:8px; margin-left: 2px; }
-    .trophyImg{
-      width:18px; height:18px; flex: 0 0 18px;
-      object-fit:contain;
-      filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));
-      opacity:.98;
-      user-select:none;
-      pointer-events:none;
+      backdrop-filter: blur(18px) saturate(1.25);
+      -webkit-backdrop-filter: blur(18px) saturate(1.25);
     }
 
     @media (max-width: 980px){
@@ -297,9 +273,11 @@
       .shell{ overflow:visible; }
       .pop{ overflow:visible; }
       .popBody{ overflow:visible; }
-      .cols{ grid-template-columns: 1fr; }
       .subtile{ width: min(100%, 460px); }
-      #todoList, #doneList{ overflow:auto; }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .bgImage, .pop{ transition:none !important; }
     }
   </style>
 </head>
@@ -399,19 +377,52 @@
     }
     tick(); setInterval(tick, 15000);
 
-    const PLAT_TROPHY_PNG = "https://stingraymanufacturers.github.io/itdepartment/plat.png";
-
-    // ✅ background images per tile
+    // background images per tile
     const BG_BY_KEY = {
-      firewalls: "https://stingraymanufacturers.github.io/itdepartment/fire.jpeg",
-      msadmin:   "https://stingraymanufacturers.github.io/itdepartment/micro.png"
+      firewalls: "https://stingraymanufacturers.github.io/itdepartment/firewall.png",
+      msadmin:   "https://stingraymanufacturers.github.io/itdepartment/micro.png",
+      tools:     "https://stingraymanufacturers.github.io/itdepartment/tools.png"
     };
 
     const bgEl = document.getElementById("bgImage");
-    function setBg(key){
+
+    // preload images
+    const _preloaded = new Map();
+    function preload(url){
+      if(!url) return Promise.resolve();
+      if(_preloaded.has(url)) return _preloaded.get(url);
+      const p = new Promise((res)=>{
+        const img = new Image();
+        img.onload = ()=>res(true);
+        img.onerror = ()=>res(false);
+        img.src = url;
+      });
+      _preloaded.set(url, p);
+      return p;
+    }
+    Object.values(BG_BY_KEY).forEach(preload);
+
+    // crossfade background
+    let bgSwapToken = 0;
+    async function setBg(key){
       const url = BG_BY_KEY[key];
       if(!url) return;
-      bgEl.style.backgroundImage = `url("${url}")`;
+
+      const token = ++bgSwapToken;
+      await preload(url);
+      if(token !== bgSwapToken) return;
+
+      bgEl.classList.add("fadeOut");
+      const dur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fadeDur')) || 520;
+
+      setTimeout(()=>{
+        if(token !== bgSwapToken) return;
+        bgEl.style.backgroundImage = `url("${url}")`;
+        requestAnimationFrame(()=>{
+          if(token !== bgSwapToken) return;
+          bgEl.classList.remove("fadeOut");
+        });
+      }, Math.max(120, Math.min(260, dur * 0.45)));
     }
 
     const sections = {
@@ -451,16 +462,43 @@
         a.innerHTML = `<div class="t">${item.title||"Item"}</div><div class="d">${item.desc||""}</div>`;
         popBody.appendChild(a);
       });
+      if(!items || items.length===0){
+        const e=document.createElement('div');
+        e.style.color="rgba(233,238,247,.70)";
+        e.style.padding="6px 2px";
+        e.textContent="No tiles yet.";
+        popBody.appendChild(e);
+      }
+    }
+
+    // smooth content fade when switching sections
+    let popToken = 0;
+    function fadePopTo(renderFn){
+      const token = ++popToken;
+      pop.classList.add('show');
+
+      popBody.style.transition = 'opacity 220ms var(--fadeEase)';
+      popBody.style.opacity = '0';
+
+      setTimeout(()=>{
+        if(token !== popToken) return;
+        renderFn();
+        requestAnimationFrame(()=>{
+          if(token !== popToken) return;
+          popBody.style.opacity = '1';
+        });
+      }, 140);
     }
 
     function renderSection(key){
       const cfg=sections[key];
-      popBody.innerHTML="";
-      pop.classList.add('show');
       if(!cfg) return;
-      if(cfg.type==="tiles") return renderTiles(cfg.items);
+
+      if(cfg.type==="tiles"){
+        return fadePopTo(()=>renderTiles(cfg.items));
+      }
       if(cfg.type==="tasks"){
-        popBody.innerHTML = `<div class="glassPanel">Tasks panel goes here (kept from your version).</div>`;
+        return fadePopTo(()=>{ popBody.innerHTML = `<div class="glassPanel">Tasks panel goes here (kept from your previous version).</div>`; });
       }
     }
 
@@ -476,7 +514,7 @@
 
       const key = tiles[idx].dataset.key;
       if(key){
-        setBg(key);        // ✅ firewalls + msadmin now switch backgrounds
+        setBg(key);
         renderSection(key);
       }
     }
@@ -484,14 +522,19 @@
     tiles.forEach((tile, idx)=>{
       if(tile.tagName === "A") return;
       tile.addEventListener('click', ()=> setActive(idx));
+      tile.addEventListener('keydown', (e)=>{
+        if(e.key==='ArrowRight'){ e.preventDefault(); const n=(idx+1)%tiles.length; setActive(n); tiles[n].focus(); }
+        if(e.key==='ArrowLeft'){ e.preventDefault(); const p=(idx-1+tiles.length)%tiles.length; setActive(p); tiles[p].focus(); }
+        if(e.key==='Enter' || e.key===' '){ e.preventDefault(); setActive(idx); }
+      });
     });
 
-    // ✅ start on Firewalls background
+    // start on Firewalls background
     setBg("firewalls");
     setActive(0);
 
     /* ---------------------------------------------------------
-       BACKGROUND DOT FIELD (same as your original)
+       FULL-SCREEN DOT FIELD + MOUSE FLOW REVEAL (WHITE)
        --------------------------------------------------------- */
     (function(){
       const canvas = document.getElementById("dots");
@@ -507,8 +550,10 @@
         revealHardness: 0.65,
         flowStrength: 0.95,
         flowDamping: 0.90,
-        greenBright: [50, 255, 120],
-        greenDark:   [10, 60, 22]
+
+        /* ✅ switched to white */
+        bright: [255, 255, 255],
+        dark:   [25, 25, 25]
       };
 
       function resize(){
@@ -567,17 +612,17 @@
       }
 
       function drawDot(cx,cy,r,lit,shade){
-        const t = clamp01(lit * 0.95 + shade * 0.25);
-        const base = mix3(CFG.greenDark, CFG.greenBright, t);
+        const t = clamp01(lit * 0.98 + shade * 0.18);
+        const base = mix3(CFG.dark, CFG.bright, t);
 
         const g = ctx.createRadialGradient(cx - r*0.35, cy - r*0.35, r*0.25, cx, cy, r*1.12);
-        g.addColorStop(0, `rgba(${base[0]},${base[1]},${base[2]},0.92)`);
-        g.addColorStop(1, `rgba(0,0,0,0.72)`);
+        g.addColorStop(0, `rgba(${base[0]},${base[1]},${base[2]},0.90)`);
+        g.addColorStop(1, `rgba(0,0,0,0.78)`);
 
         ctx.fillStyle = g;
         ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
 
-        ctx.fillStyle = `rgba(255,255,255,${0.02 + lit*0.05})`;
+        ctx.fillStyle = `rgba(255,255,255,${0.02 + lit*0.06})`;
         ctx.beginPath(); ctx.arc(cx - r*0.32, cy - r*0.32, r*0.18, 0, Math.PI*2); ctx.fill();
       }
 
@@ -618,7 +663,7 @@
 
             const lit = revealAt(px,py);
 
-            const baseAlpha = 0.015;
+            const baseAlpha = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dotsBase')) || 0.010;
             const revealAlpha = Math.pow(lit, 1.25);
             const alpha = clamp01(baseAlpha + revealAlpha);
 
