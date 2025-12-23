@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SharePoint Intranet – PS5 UI</title>
+  <style>
+    :root{
+      --bg:#0b0e14;
+      --text:#e9eef7;
+
+      --tile: 112px;
+      --tileBig: 178px;
+      --gap: 20px;
+
+      --safeTop: 34px;
+      --safeX: clamp(18px, 3.2vw, 48px);
+      --popOffset: 28px;
+
+      /* ✅ blur glass */
+      --glassA: rgba(255,255,255,.10);
+      --glassB: rgba(255,255,255,.06);
+      --glassBorder: rgba(255,255,255,.22);
+      --glassBorderOn: rgba(255,255,255,.42);
+      --glassGlow: rgba(255,255,255,.18);
+
+      /* ✅ fades */
+      --fadeDur: 520ms;
+      --fadeEase: cubic-bezier(.2,.8,.2,1);
+
+      /* ✅ for canvas dots */
+      --dotsBase: 0.010;   /* always faintly visible */
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      color:var(--text);
+      background: var(--bg);
+      overflow:hidden;
+    }
+
+    /* ✅ dynamic background image (switches per tile) */
+    .bgImage{
+      position:fixed; inset:0;
+      z-index:-3;
+      background:#000 center/cover no-repeat;
+      transition: opacity var(--fadeDur) var(--fadeEase), filter .25s ease, transform .25s ease;
+      opacity: .98;
+      filter: saturate(1.05) contrast(1.05);
+      transform: scale(1.02);
+      will-change: opacity, background-image;
+    }
+    .bgImage.fadeOut{ opacity: 0; }
+
+    /* ✅ dark overlay (lets image show through) */
+    .bg{
+      position:fixed; inset:0;
+      z-index:-4;
+      background: rgba(0,0,0,.38);
+    }
+
+    canvas#dots{
+      position:fixed; inset:0; z-index:-2;
+      width:100%; height:100%;
+      display:block;
+      pointer-events:none;
+    }
+
+    .vignette{
+      position:fixed; inset:0; z-index:-1; pointer-events:none;
+      background: radial-gradient(circle at 55% 35%,
+        rgba(0,0,0,.0) 0,
+        rgba(0,0,0,.30) 58%,
+        rgba(0,0,0,.78) 100%);
+    }
+
+    .shell{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      padding: var(--safeTop) var(--safeX) 18px;
+      gap: 18px;
+      min-height: 0;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 16px;
+      user-select:none;
+      flex: 0 0 auto;
+    }
+    .topbar-left{display:flex;align-items:baseline;gap:18px;letter-spacing:.2px;}
+    .topbar-left .tab{font-size:26px;font-weight:750;opacity:.95;}
+    .topbar-right{display:flex;align-items:center;gap:12px;opacity:.95;}
+    .time{font-size:20px;opacity:.75;letter-spacing:.3px;white-space:nowrap;}
+
+    .strip{
+      display:flex;
+      align-items:flex-end;
+      gap: var(--gap);
+      padding-top: 18px;
+      padding-bottom: 10px;
+      margin-top: 6px;
+      min-height: calc(var(--tileBig) + 30px);
+      overflow-x:auto;
+      overflow-y:hidden;
+      flex: 0 0 auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,.20) rgba(0,0,0,0);
+    }
+
+    /* ✅ GLASS TILE (top row) */
+    .tile{
+      position:relative;
+      width: var(--tile);
+      height: var(--tile);
+      border-radius: 26px;
+      border: 1px solid var(--glassBorder);
+      background: linear-gradient(180deg, var(--glassA), var(--glassB));
+      box-shadow:
+        0 18px 40px rgba(0,0,0,.30),
+        inset 0 1px 0 rgba(255,255,255,.10);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      transition: width .18s ease, height .18s ease, transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
+      flex: 0 0 auto;
+      outline:none;
+      color: inherit;
+      text-decoration: none;
+      -webkit-tap-highlight-color: transparent;
+
+      /* glass blur */
+      backdrop-filter: blur(16px) saturate(1.25);
+      -webkit-backdrop-filter: blur(16px) saturate(1.25);
+    }
+    a.tile{ text-decoration:none; color:inherit; }
+
+    .tile:focus-visible{
+      box-shadow:
+        0 0 0 3px rgba(255,255,255,.18),
+        0 18px 40px rgba(0,0,0,.30),
+        inset 0 1px 0 rgba(255,255,255,.12);
+      border-color: var(--glassBorderOn);
+    }
+    .tile svg{ width:48px; height:48px; opacity:.92 }
+
+    .tile .badge{
+      position:absolute; right:14px; top:14px;
+      width:10px; height:10px; border-radius:99px;
+      background: rgba(255,255,255,.95);
+      box-shadow: 0 0 0 3px rgba(255,255,255,.20);
+      opacity:0;
+      transition: opacity .18s ease;
+    }
+    .tile.active{
+      width: var(--tileBig);
+      height: var(--tileBig);
+      border-color: var(--glassBorderOn);
+      background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.07));
+      transform: translateY(-2px);
+      box-shadow:
+        0 22px 55px rgba(0,0,0,.35),
+        0 0 0 1px rgba(255,255,255,.06),
+        0 0 22px var(--glassGlow),
+        inset 0 1px 0 rgba(255,255,255,.14);
+    }
+    .tile.active .badge{ opacity:1; }
+
+    .tilewrap{display:flex;flex-direction:column;align-items:center;flex:0 0 auto;min-width:0;}
+    .tile-label{
+      margin-top: 12px;
+      font-size: 20px;
+      font-weight: 650;
+      opacity:.92;
+      transform: translateY(6px);
+      transition: opacity .18s ease, transform .18s ease;
+      white-space: nowrap;
+      overflow: visible;
+      padding: 0 8px;
+      text-align:center;
+      text-shadow: 0 2px 10px rgba(0,0,0,.35);
+    }
+    .tilewrap.active .tile-label{opacity:.96;transform: translateY(0);}
+
+    .pop{
+      display:none;
+      margin-top: var(--popOffset);
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+
+      /* smooth show/hide */
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 280ms var(--fadeEase), transform 280ms var(--fadeEase);
+    }
+    .pop.show{
+      display:flex;
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .popBody{
+      flex: 1 1 auto;
+      min-height: 0;
+      display:flex;
+      gap: 14px;
+      flex-wrap:wrap;
+      align-items:flex-start;
+      overflow: hidden;
+      padding-top: 10px;
+    }
+
+    /* ✅ GLASS SUBTILES (popup tiles) */
+    .subtile{
+      width: 300px;
+      min-height: 128px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
+      cursor:pointer;
+      transition: transform .12s ease, border-color .12s ease, filter .12s ease, box-shadow .12s ease;
+      display:flex;
+      flex-direction:column;
+      padding: 16px;
+      outline:none;
+      text-decoration:none;
+      color: var(--text);
+      box-shadow: 0 18px 50px rgba(0,0,0,.30);
+      flex: 0 0 auto;
+
+      backdrop-filter: blur(16px) saturate(1.25);
+      -webkit-backdrop-filter: blur(16px) saturate(1.25);
+    }
+    .subtile:hover{
+      transform: translateY(-2px);
+      border-color: rgba(255,255,255,.34);
+      filter: brightness(1.05);
+      box-shadow: 0 22px 60px rgba(0,0,0,.38), 0 0 0 1px rgba(255,255,255,.06);
+    }
+    .subtile:focus-visible{
+      box-shadow: 0 0 0 3px rgba(255,255,255,.14), 0 22px 60px rgba(0,0,0,.38);
+      border-color: rgba(255,255,255,.46);
+    }
+    .subtile .t{ font-weight: 800; font-size: 17px; letter-spacing:.2px; }
+    .subtile .d{ margin-top: 8px; color: rgba(233,238,247,.78); font-size: 13px; line-height: 1.35; }
+
+    /* ✅ GLASS PANEL (tasks placeholder) */
+    .glassPanel{
+      width: min(980px, 100%);
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.05));
+      box-shadow: 0 18px 50px rgba(0,0,0,.30);
+      padding: 14px;
+      flex: 1 1 auto;
+      min-height: 0;
+      display:flex;
+      flex-direction:column;
+
+      backdrop-filter: blur(18px) saturate(1.25);
+      -webkit-backdrop-filter: blur(18px) saturate(1.25);
+    }
+
+    @media (max-width: 980px){
+      body{ overflow:auto; }
+      .shell{ overflow:visible; }
+      .pop{ overflow:visible; }
+      .popBody{ overflow:visible; }
+      .subtile{ width: min(100%, 460px); }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .bgImage, .pop{ transition:none !important; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg" aria-hidden="true"></div>
+  <div class="bgImage" id="bgImage" aria-hidden="true"></div>
+  <canvas id="dots" aria-hidden="true"></canvas>
+  <div class="vignette" aria-hidden="true"></div>
+
+  <div class="shell">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="tab">IT Department</div>
+      </div>
+      <div class="topbar-right">
+        <div class="time" id="clock">--:--</div>
+      </div>
+    </div>
+
+    <div class="strip" role="tablist" aria-label="Top navigation tiles">
+      <div class="tilewrap">
+        <button class="tile" data-key="firewalls" type="button" role="tab" aria-selected="false" tabindex="0">
+          <span class="badge" aria-hidden="true"></span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V7l8-4Z"></path>
+            <path d="M9 12h6"></path>
+            <path d="M12 9v6"></path>
+          </svg>
+        </button>
+        <div class="tile-label">Firewalls</div>
+      </div>
+
+      <div class="tilewrap">
+        <button class="tile" data-key="msadmin" type="button" role="tab" aria-selected="false" tabindex="-1">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <rect x="4" y="4" width="7" height="7" rx="2"></rect>
+            <rect x="13" y="4" width="7" height="7" rx="2"></rect>
+            <rect x="4" y="13" width="7" height="7" rx="2"></rect>
+            <rect x="13" y="13" width="7" height="7" rx="2"></rect>
+          </svg>
+        </button>
+        <div class="tile-label">MS Admin Centers</div>
+      </div>
+
+      <div class="tilewrap">
+        <button class="tile" data-key="tools" type="button" role="tab" aria-selected="false" tabindex="-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14.7 6.3a5 5 0 0 0-6.4 6.4L3 18l3 3 5.3-5.3a5 5 0 0 0 6.4-6.4l-3 3-2.5-2.5 2.5-2.5-3-3Z"></path>
+          </svg>
+        </button>
+        <div class="tile-label">Tools</div>
+      </div>
+
+      <div class="tilewrap">
+        <button class="tile" data-key="tasks" type="button" role="tab" aria-selected="false" tabindex="-1">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.1V12a10 10 0 1 1-6-9.1"></path>
+            <path d="M22 4 12 14.01l-3-3"></path>
+          </svg>
+        </button>
+        <div class="tile-label">Tasks</div>
+      </div>
+
+      <div class="tilewrap">
+        <a class="tile"
+           href="msteams:/l/chat/19:fa0e1319f3e64114b9c2281b4e908449@thread.v2"
+           target="_self"
+           rel="noopener noreferrer"
+           role="tab"
+           aria-label="Open Teams chat"
+           onclick="setTimeout(()=>{ window.open('https://teams.microsoft.com/l/chat/19:fa0e1319f3e64114b9c2281b4e908449@thread.v2/conversations?context=%7B%22contextType%22%3A%22chat%22%7D','_blank','noopener'); }, 900);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z"></path>
+            <path d="M7 8h10"></path>
+            <path d="M7 12h8"></path>
+          </svg>
+        </a>
+        <div class="tile-label">Chat</div>
+      </div>
+    </div>
+
+    <div class="pop" id="pop" aria-live="polite">
+      <div class="popBody" id="popBody"></div>
+    </div>
+  </div>
+
+  <script>
+    // Clock
+    const clockEl = document.getElementById('clock');
+    function tick(){
+      const d = new Date();
+      let h = d.getHours(), m = d.getMinutes();
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12; if (h === 0) h = 12;
+      clockEl.textContent = `${h}:${String(m).padStart(2,'0')} ${ampm}`;
+    }
+    tick(); setInterval(tick, 15000);
+
+    // background images per tile
+    const BG_BY_KEY = {
+      firewalls: "https://stingraymanufacturers.github.io/itdepartment/firewall.png",
+      msadmin:   "https://stingraymanufacturers.github.io/itdepartment/micro.png",
+      tools:     "https://stingraymanufacturers.github.io/itdepartment/tools.png"
+    };
+
+    const bgEl = document.getElementById("bgImage");
+
+    // preload images
+    const _preloaded = new Map();
+    function preload(url){
+      if(!url) return Promise.resolve();
+      if(_preloaded.has(url)) return _preloaded.get(url);
+      const p = new Promise((res)=>{
+        const img = new Image();
+        img.onload = ()=>res(true);
+        img.onerror = ()=>res(false);
+        img.src = url;
+      });
+      _preloaded.set(url, p);
+      return p;
+    }
+    Object.values(BG_BY_KEY).forEach(preload);
+
+    // crossfade background
+    let bgSwapToken = 0;
+    async function setBg(key){
+      const url = BG_BY_KEY[key];
+      if(!url) return;
+
+      const token = ++bgSwapToken;
+      await preload(url);
+      if(token !== bgSwapToken) return;
+
+      bgEl.classList.add("fadeOut");
+      const dur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fadeDur')) || 520;
+
+      setTimeout(()=>{
+        if(token !== bgSwapToken) return;
+        bgEl.style.backgroundImage = `url("${url}")`;
+        requestAnimationFrame(()=>{
+          if(token !== bgSwapToken) return;
+          bgEl.classList.remove("fadeOut");
+        });
+      }, Math.max(120, Math.min(260, dur * 0.45)));
+    }
+
+    const sections = {
+      firewalls: { type: "tiles", items: [
+        { title: "CPT Dream Machine", desc: "Cape Town firewall management", href: "https://unifi.ui.com/consoles/6022328BB5650000000006BE9C7400000000084213F800000000656BF6B9:1498486960/network/default/dashboard" },
+        { title: "JHB Dream Machine", desc: "Johannesburg firewall management", href: "https://unifi.ui.com/consoles/6022328637450000000006B752FA0000000008428F5800000000656DC7A3:1786763997/network/default/dashboard" }
+      ]},
+      msadmin: { type:"tiles", items: [
+        { title: "Admin Center", desc: "Microsoft 365 Admin Center", href: "https://admin.cloud.microsoft/?#/homepage" },
+        { title: "Exchange", desc: "Exchange Admin Center", href: "https://admin.exchange.microsoft.com/#/homepage" },
+        { title: "Entra", desc: "Entra admin and identity", href: "https://entra.microsoft.com/#home" },
+        { title: "SharePoint", desc: "SharePoint Admin Center", href: "https://stingrayacc-admin.sharepoint.com/_layouts/15/online/AdminHome.aspx#/home" },
+        { title: "Teams", desc: "Teams Admin Center", href: "https://admin.teams.microsoft.com/dashboard" }
+      ]},
+      tools: { type:"tiles", items: [
+        { title: "Datto", desc: "RMM / backups / monitoring", href: "https://auth.datto.com/login?rmmLogin=eyJjbGllbnRfaWQiOiJRQXp0TXBYdzJpd3JGNFdCelI5ZSIsInJlZGlyZWN0X3VyaSI6Imh0dHBzOi8vcGlub3RhZ2UtZnJvbnRlbmQtYXBpLmNlbnRyYXN0YWdlLm5ldC9rMS1sb2dpbi1jYWxsYmFjayIsInN0YXRlIjoiNmUzZmU2MzYtN2RhYy00ZmQwLWI4NTktMDc2MDQzYmJkODZmOntcIm9wZXJhdGlvblwiOlwibG9naW5cIn0iLCJsb2dpbl9oaW50IjoiIn0" },
+        { title: "Yeastar Cloud PBX", desc: "Cloud PBX management", href: "https://stingrayaccessorymanufacturers.ymp2.cloud.ecn.co.za/" },
+        { title: "Call Cabinet", desc: "Call recording and reporting", href: "https://stingrayaccessorymanufacturers.callcabinet.com/" },
+        { title: "MAN 3000", desc: "Network management tool", href: "https://www.man3000dhs.com/StartPage.aspx?man=6552&noc=one&LD=20250701083805" }
+      ]},
+      tasks: { type: "tasks" }
+    };
+
+    const pop = document.getElementById('pop');
+    const popBody = document.getElementById('popBody');
+    const wraps = Array.from(document.querySelectorAll('.tilewrap'));
+    const tiles = Array.from(document.querySelectorAll('.tile'));
+
+    function renderTiles(items){
+      popBody.innerHTML = "";
+      (items||[]).forEach(item=>{
+        const a = document.createElement('a');
+        a.className = "subtile";
+        a.href = item.href || "#";
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.innerHTML = `<div class="t">${item.title||"Item"}</div><div class="d">${item.desc||""}</div>`;
+        popBody.appendChild(a);
+      });
+      if(!items || items.length===0){
+        const e=document.createElement('div');
+        e.style.color="rgba(233,238,247,.70)";
+        e.style.padding="6px 2px";
+        e.textContent="No tiles yet.";
+        popBody.appendChild(e);
+      }
+    }
+
+    // smooth content fade when switching sections
+    let popToken = 0;
+    function fadePopTo(renderFn){
+      const token = ++popToken;
+      pop.classList.add('show');
+
+      popBody.style.transition = 'opacity 220ms var(--fadeEase)';
+      popBody.style.opacity = '0';
+
+      setTimeout(()=>{
+        if(token !== popToken) return;
+        renderFn();
+        requestAnimationFrame(()=>{
+          if(token !== popToken) return;
+          popBody.style.opacity = '1';
+        });
+      }, 140);
+    }
+
+    function renderSection(key){
+      const cfg=sections[key];
+      if(!cfg) return;
+
+      if(cfg.type==="tiles"){
+        return fadePopTo(()=>renderTiles(cfg.items));
+      }
+      if(cfg.type==="tasks"){
+        return fadePopTo(()=>{ popBody.innerHTML = `<div class="glassPanel">Tasks panel goes here (kept from your previous version).</div>`; });
+      }
+    }
+
+    function setActive(idx){
+      wraps.forEach((w,i)=> w.classList.toggle('active', i===idx));
+      tiles.forEach((t,i)=>{
+        const on=i===idx;
+        if(t.tagName === "A") return;
+        t.classList.toggle('active', on);
+        t.setAttribute('aria-selected', on?'true':'false');
+        t.tabIndex = on ? 0 : -1;
+      });
+
+      const key = tiles[idx].dataset.key;
+      if(key){
+        setBg(key);
+        renderSection(key);
+      }
+    }
+
+    tiles.forEach((tile, idx)=>{
+      if(tile.tagName === "A") return;
+      tile.addEventListener('click', ()=> setActive(idx));
+      tile.addEventListener('keydown', (e)=>{
+        if(e.key==='ArrowRight'){ e.preventDefault(); const n=(idx+1)%tiles.length; setActive(n); tiles[n].focus(); }
+        if(e.key==='ArrowLeft'){ e.preventDefault(); const p=(idx-1+tiles.length)%tiles.length; setActive(p); tiles[p].focus(); }
+        if(e.key==='Enter' || e.key===' '){ e.preventDefault(); setActive(idx); }
+      });
+    });
+
+    // start on Firewalls background
+    setBg("firewalls");
+    setActive(0);
+
+    /* ---------------------------------------------------------
+       FULL-SCREEN DOT FIELD + MOUSE FLOW REVEAL (WHITE)
+       --------------------------------------------------------- */
+    (function(){
+      const canvas = document.getElementById("dots");
+      const ctx = canvas.getContext("2d", { alpha:true });
+
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const S = { w:0,h:0,t:0,mx:0,my:0,pmx:0,pmy:0,vx:0,vy:0,trail:[],flowX:0,flowY:0 };
+
+      const CFG = {
+        spacing: 42,
+        radius: 14,
+        revealRadius: 200,
+        revealHardness: 0.65,
+        flowStrength: 0.95,
+        flowDamping: 0.90,
+
+        /* ✅ switched to white */
+        bright: [255, 255, 255],
+        dark:   [25, 25, 25]
+      };
+
+      function resize(){
+        S.w = canvas.clientWidth;
+        S.h = canvas.clientHeight;
+        canvas.width = Math.floor(S.w * dpr);
+        canvas.height = Math.floor(S.h * dpr);
+        ctx.setTransform(dpr,0,0,dpr,0,0);
+      }
+      resize();
+      window.addEventListener("resize", resize);
+
+      function addTrail(x,y,boost){
+        S.trail.unshift({x,y,p: 1, b: boost});
+        if(S.trail.length > 24) S.trail.length = 24;
+      }
+
+      window.addEventListener("pointermove", (e)=>{
+        S.mx = e.clientX;
+        S.my = e.clientY;
+
+        const dx = S.mx - S.pmx;
+        const dy = S.my - S.pmy;
+        S.vx = S.vx * CFG.flowDamping + dx * 0.18;
+        S.vy = S.vy * CFG.flowDamping + dy * 0.18;
+
+        const speed = Math.hypot(dx,dy);
+        addTrail(S.mx, S.my, Math.min(2.2, 0.8 + speed/90));
+
+        S.pmx = S.mx;
+        S.pmy = S.my;
+      }, { passive:true });
+
+      function clamp01(x){ return Math.max(0, Math.min(1, x)); }
+      function lerp(a,b,t){ return a + (b-a)*t; }
+      function mix3(a,b,t){ return [lerp(a[0],b[0],t), lerp(a[1],b[1],t), lerp(a[2],b[2],t)]; }
+
+      function revealAt(x,y){
+        let v = 0;
+
+        {
+          const dx = x - S.mx, dy = y - S.my;
+          const d = Math.hypot(dx,dy);
+          const k = Math.max(0, 1 - d / CFG.revealRadius);
+          v += Math.pow(k, 1.8 + (CFG.revealHardness*2.4));
+        }
+
+        for(const p of S.trail){
+          const dx = x - p.x, dy = y - p.y;
+          const d = Math.hypot(dx,dy);
+          const k = Math.max(0, 1 - d / (CFG.revealRadius*0.85));
+          v += Math.pow(k, 2.2) * p.p * 0.75 * p.b;
+        }
+
+        return clamp01(v);
+      }
+
+      function drawDot(cx,cy,r,lit,shade){
+        const t = clamp01(lit * 0.98 + shade * 0.18);
+        const base = mix3(CFG.dark, CFG.bright, t);
+
+        const g = ctx.createRadialGradient(cx - r*0.35, cy - r*0.35, r*0.25, cx, cy, r*1.12);
+        g.addColorStop(0, `rgba(${base[0]},${base[1]},${base[2]},0.90)`);
+        g.addColorStop(1, `rgba(0,0,0,0.78)`);
+
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+
+        ctx.fillStyle = `rgba(255,255,255,${0.02 + lit*0.06})`;
+        ctx.beginPath(); ctx.arc(cx - r*0.32, cy - r*0.32, r*0.18, 0, Math.PI*2); ctx.fill();
+      }
+
+      function animate(){
+        S.t += 0.016;
+
+        for(const p of S.trail){ p.p *= 0.92; }
+        S.trail = S.trail.filter(p=> p.p > 0.03);
+
+        S.flowX = S.flowX * 0.90 + S.vx * CFG.flowStrength;
+        S.flowY = S.flowY * 0.90 + S.vy * CFG.flowStrength;
+
+        const w = S.w, h = S.h;
+        ctx.clearRect(0,0,w,h);
+
+        const minSide = Math.min(w,h);
+        const spacing = Math.max(26, CFG.spacing * (minSide/1200));
+        const r0 = Math.max(8, CFG.radius * (minSide/1200));
+        const dx = spacing;
+        const dy = spacing * 0.86;
+
+        const extra = spacing * 3;
+        let row = 0;
+
+        for(let y=-extra; y<h+extra; y+=dy, row++){
+          const off = (row % 2) ? dx*0.5 : 0;
+
+          for(let x=-extra; x<w+extra; x+=dx){
+            const px = x + off
+              + Math.sin((y*0.012) + S.t*0.9) * 2
+              + Math.cos((x*0.010) + S.t*0.7) * 2
+              + S.flowX * 0.12;
+
+            const py = y
+              + Math.cos((x*0.012) + S.t*0.85) * 2
+              + Math.sin((y*0.010) + S.t*0.65) * 2
+              + S.flowY * 0.12;
+
+            const lit = revealAt(px,py);
+
+            const baseAlpha = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dotsBase')) || 0.010;
+            const revealAlpha = Math.pow(lit, 1.25);
+            const alpha = clamp01(baseAlpha + revealAlpha);
+
+            if(alpha < 0.02) continue;
+
+            const rr = r0 * (0.95 + lit*0.28);
+            const shade = (Math.sin((px+py)*0.003 + S.t*0.8) * 0.5 + 0.5) * 0.25;
+
+            ctx.globalAlpha = alpha;
+            drawDot(px,py,rr,lit,shade);
+          }
+        }
+
+        ctx.globalAlpha = 1;
+        requestAnimationFrame(animate);
+      }
+
+      requestAnimationFrame(animate);
+    })();
+  </script>
+</body>
+</html>
